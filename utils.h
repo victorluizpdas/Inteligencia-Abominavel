@@ -22,7 +22,7 @@ vector<vector<double>>  initLayer(int layerSize, int lastLayerSize){
         
         for(int j = 0; j <= lastLayerSize; j++){
 
-            bool x =  xMin + (xMax - xMin) * ((double)rand() / RAND_MAX);
+            double x =  xMin + (xMax - xMin) * ((double)rand() / RAND_MAX);
             temp.push_back(x);
 
         }
@@ -80,7 +80,7 @@ vector<vector<double>> readImages(const string& fileName)
 
             file.read(reinterpret_cast<char*>(&pixel), 1);
 
-            images[i][j] = pixel / 255.0;
+            images[i][j] = (float)pixel / 255.0;
         }
     }
 
