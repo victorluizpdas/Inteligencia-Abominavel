@@ -1,84 +1,80 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
-#include <algorithm>
-#include <iomanip> // Used for alignment and decimals instead of std::format
+#include <iomanip>
 
-#include <opencv2/opencv.hpp>
 
 #include "utils.h"
 
+
 using namespace std;
 
-// Keeps outputs bounded between 0 and 1
-double sigmoid(double x) {
-    return 1.0 / (1.0 + exp(-x));
+double sigmoid(double x){
+    return 1.0 /
+     (1.0 + exp(-x));
+}
+double derSigmoid(double x){
+    return sigmoid(x)*(1-sigmoid(x));
 }
 
-// TODO: ReLu implementation for hidden layers if you want to swap it out later:
 double relu(double x) {
     return max(0.0, x);
 }
 
-double normalizeNeuron(double x){
-    return sigmoid(x);
+void derMatrix(vector<vector<double>>& matrix){
+    for(int i = 0; i < matrix.size(); i++){
+        for(int j = 0; j < matrix[i].size(); j++){
+            matrix[i][j] = derSigmoid(matrix[i][j]);    
+        }
+    }
 }
 
-// Fixed bug: Loop matches incoming activations size; weights must be size activations.size() + 1
-double activation(const vector<double>& weights, const vector<double>& activations){
+double activation(vector<double>& weights, vector<double>& activations, double bias){
     double sum = 0;
 
-    for(size_t i = 0; i < activations.size(); i++ ){
+    for(int i = 0; i < activations.size(); i++ ){
         sum += weights[i] * activations[i];
     }
 
-    // The very last element is treated as the bias
-    sum += weights[activations.size()];
-    return normalizeNeuron(sum);
+    sum += bias;
+    return sigmoid(sum);
 }
 
-// Debug function to inspect what the neurons are doing inside a layer using standard cout streaming
-void printLayerState(const string& layerName, const vector<vector<double>>& layerWeights, const vector<double>& inputs, const vector<double>& outputs) {
-    cout << "\n--- Debugging " << layerName << " ---\n";
-    
-    // Set formatting for numbers
-    cout << fixed << setprecision(3);
-    
-    for(size_t i = 0; i < outputs.size(); i++) {
-        double sumWithoutBias = 0;
-        for(size_t j = 0; j < inputs.size(); j++) {
-            sumWithoutBias += layerWeights[i][j] * inputs[j];
-        }
-        double bias = layerWeights[i][inputs.size()];
-        
-        cout << "  Neuron " << setw(2) << i 
-             << ": Sum = " << setw(8) << sumWithoutBias 
-             << " | Bias = " << setw(8) << bias 
-             << " | Activation = " << setprecision(4) << outputs[i] << "\n";
-    }
-}
-
-double lossFunction(const vector<double>& outputLayer, int label){
+double lossFunction(vector<double>& outputLayer, int label){
     double sum = 0;
 
-    for(size_t i = 0; i < outputLayer.size(); i++){
-        if(static_cast<int>(i) == label){
+    for(int i = 0; i < outputLayer.size(); i++){
+        if( i == label){
             sum += pow(1.0 - outputLayer[i], 2);
         }else{
-            sum += pow(0.0 - outputLayer[i], 2);
+             sum += pow(0.0 - outputLayer[i], 2);
         }
     }
 
     return sum;
 }
 
-int output(const vector<double>& outputLayer){
-    double maxVal = outputLayer[0];
+void lossFunctionVector(vector<double>& outputLayer, int label){
+
+    for(int i = 0; i < outputLayer.size(); i++){
+
+        double target =
+            (i == label) ? 1.0 : 0.0;
+
+        outputLayer[i] =
+            2.0 * (outputLayer[i] - target);
+    }
+
+   
+}
+
+int output(vector<double>& outputLayer){
+    double max = outputLayer[0];
     int resposta = 0;
 
-    for(size_t i = 1; i < outputLayer.size(); i++){
-        if(outputLayer[i] > maxVal){
-            maxVal = outputLayer[i];
+    for(int i = 1; i < outputLayer.size(); i++){
+        if(outputLayer[i] > max){
+            max = outputLayer[i];
             resposta = i;
         }
     }
@@ -86,65 +82,113 @@ int output(const vector<double>& outputLayer){
     return resposta;
 }
 
+/*vector<vector<double>> multMatrix(vector<vector<double>>& x, vector<vector<double>>& y){
+    
+    vector<vector<double>> temp((x.size()), vector<double>(y[0].size()));
+    for(int i = 0; i<x.size();i++){ 
+        for(int k = 0; k<y[0].size();k++){
+            for(int j = 0; j<y.size();j++){
+                
+                temp[i][j] += y[k][j] * x[i][k]; 
+            }
+        }
+    }
+    return temp;
+}*/
+
+vector<vector<double>> multMatrix(vector<vector<double>>& x,vector<vector<double>>& y){
+
+    vector<vector<double>> temp(x.size(),vector<double>(y[0].size(),0.0));
+
+    for(int i = 0; i < x.size(); i++){
+        for(int j = 0; j < y[0].size(); j++){
+            for(int k = 0; k < y.size(); k++){
+                temp[i][j] += x[i][k] * y[k][j];
+            }
+        }
+    }
+
+    return temp;
+}
+
+
+void backPropagation(vector<vector<double>> lastLayer, vector<vector<double>>& atualLayer){
+    derMatrix(lastLayer);
+    
+
+    int linhas = min((int)atualLayer.size(),(int)lastLayer.size());
+
+    for(int i = 0; i < linhas; i++){
+
+        int colunas = min((int)atualLayer[i].size(), (int)lastLayer[i].size());
+
+        for(int j = 0; j < colunas; j++){
+
+            atualLayer[i][j] -= 0.001 * lastLayer[i][j];
+        }
+    }
+}
+
+
 int main() {
     
     auto images = readImages("dataset/train-images.idx3-ubyte");
     auto labels = readLabels("dataset/train-labels.idx1-ubyte");
 
-    if (images.empty() || labels.empty()) {
-        cerr << "Error: Dataset failed to load. Check file paths.\n";
-        return 1;
-    }
+        //TODO: mudar tudo esse caralho pra std array [] (mto serviço nuuuuuuuuuuuuuu)
+        auto hiddenLayerWeights1 = initLayer(16, images[0].size());
+        auto hiddenLayerBiases1 = initLayer(1,16);
+        vector<vector<double>> hiddenLayer1((1),vector<double>(16));
 
-    // Explicitly allocating weights + 1 slot extra for the bias element
-    auto hiddenLayerWeights1 = initLayer(16, images[0].size() + 1);
-    vector<double> hiddenLayer1(16);
+        auto hiddenLayerWeights2 = initLayer(16, hiddenLayer1[0].size());
+        auto hiddenLayerBiases2 = initLayer(1,16);
+        vector<vector<double>> hiddenLayer2((1),vector<double>(16));
 
-    auto hiddenLayerWeights2 = initLayer(16, hiddenLayer1.size() + 1);
-    vector<double> hiddenLayer2(16);
+        auto outputLayerWeights =  initLayer(10, hiddenLayer2[0].size());
+        auto outputLayerBiases = initLayer(1,10);
+        vector<vector<double>> outputLayer((1),vector<double>(10));
 
-    auto outputLayerWeights =  initLayer(10, hiddenLayer2.size() + 1);
-    vector<double> outputLayer(10);
+        cout << "Imagens carregadas: " << images.size() << " | Labels carregadas: " << labels.size() << endl;
 
-    for(size_t imageAt = 0; imageAt < images.size(); imageAt++){
+        for(int imageAt = 0; imageAt < images.size(); imageAt++){
 
-        const auto& image = images[imageAt];
-        int label = labels[imageAt];
+            auto image = images[imageAt];
+            auto label = labels[imageAt];
 
-        // 1. Forward Pass: Hidden Layer 1
-        for(size_t i = 0; i < hiddenLayer1.size(); i++){
-            hiddenLayer1[i] = activation(hiddenLayerWeights1[i], image);
+            for(int i = 0; i < hiddenLayer1[0].size(); i++){
+                hiddenLayer1[0][i] = activation(hiddenLayerWeights1[i], image, hiddenLayerBiases1[0][i]);
+            }
+
+            for(int i = 0; i < hiddenLayer2[0].size(); i++){
+                hiddenLayer2[0][i] = activation(hiddenLayerWeights2[i], hiddenLayer1[0], hiddenLayerBiases2[0][i]);
+            }
+
+            for(int i = 0; i < outputLayer[0].size(); i++){
+                outputLayer[0][i] = activation(outputLayerWeights[i], hiddenLayer2[0], outputLayerBiases[0][i]);
+            }
+
+
+
+            double loss = lossFunction(outputLayer[0],label);
+            int resposta = output(outputLayer[0]);
+            lossFunctionVector(outputLayer[0],label);
+
+
+            backPropagation(outputLayer, outputLayerWeights);
+
+
+
+            backPropagation(multMatrix(outputLayer, outputLayerWeights), hiddenLayerWeights2);
+            backPropagation(multMatrix(hiddenLayer2, hiddenLayerWeights2), hiddenLayerWeights1);
+
+
+
+            if (imageAt % 1000 == 0 || imageAt == 0) {
+                cout << fixed << setprecision(6);
+                cout << "\n[Imagem n: " << imageAt << "] Perda: " << loss 
+                    << " | Resposta Rede: " << resposta << " | Alvo Real: " << label;
+            }
         }
-
-        // 2. Forward Pass: Hidden Layer 2
-        for(size_t i = 0; i < hiddenLayer2.size(); i++){
-            hiddenLayer2[i] = activation(hiddenLayerWeights2[i], hiddenLayer1);
-        }
-
-        // 3. Forward Pass: Output Layer
-        for(size_t i = 0; i < outputLayerWeights.size(); i++){
-            outputLayer[i] = activation(outputLayerWeights[i], hiddenLayer2);
-        }
-
-        // Detailed Terminal Debugging (Only runs for the first image to avoid terminal spam)
-        if (imageAt == 0) {
-            cout << "\n====== INITIAL DETAILED NEURON VISUALIZATION (Image 0) ======";
-            printLayerState("Hidden Layer 1", hiddenLayerWeights1, image, hiddenLayer1);
-            printLayerState("Hidden Layer 2", hiddenLayerWeights2, hiddenLayer1, hiddenLayer2);
-            printLayerState("Output Layer", outputLayerWeights, hiddenLayer2, outputLayer);
-            cout << "==============================================================\n";
-        }
-
-        double loss = lossFunction(outputLayer, label);
-        int resposta = output(outputLayer);
-        
-        // Regular progress tracker
-        if (imageAt % 1000 == 0 || imageAt == 0) {
-            cout << fixed << setprecision(6);
-            cout << "\n[Imagem n: " << imageAt << "] Perda: " << loss 
-                 << " | Resposta Rede: " << resposta << " | Alvo Real: " << label;
-        }
-    }
-
+    
     return 0;
 }
