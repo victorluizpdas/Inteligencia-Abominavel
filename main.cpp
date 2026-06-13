@@ -130,7 +130,7 @@ int main(){
     vector<vector<double>> outputLayer( 1,  vector<double>(10));
 
    
-    const double learningRate = 0.001;
+    const double learningRate = 0.1;
 
     for(int imageAt = 0; imageAt < images.size();imageAt++){
 
