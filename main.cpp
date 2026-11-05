@@ -64,13 +64,9 @@ vector<double> calcOutputDelta(vector<double>& output,int label){
     vector<double> delta(output.size());
 
     for(int i = 0; i < output.size(); i++){
-        double target =
-            (i == label) ? 1.0 : 0.0;
+        double target = (i == label) ? 1.0 : 0.0;
 
-        delta[i] =
-            2.0 *
-            (output[i] - target) *
-            derSigmoidActivated(output[i]);
+        delta[i] = 2.0 * (output[i] - target) * derSigmoidActivated(output[i]);
     }
 
     return delta;
@@ -93,14 +89,12 @@ vector<double> calcHiddenDelta(vector<double>& activations,vector<double>& nextD
 }
 
 void updateWeights(vector<vector<double>>& weights,vector<double>& delta,vector<double>& previousActivations,double learningRate){
+
     for(int neuron = 0; neuron < weights.size();neuron++){
 
         for(int weight = 0;weight < weights[neuron].size();weight++){
 
-            weights[neuron][weight] -=
-                learningRate *
-                delta[neuron] *
-                previousActivations[weight];
+            weights[neuron][weight] -= learningRate * delta[neuron] * previousActivations[weight];
         }
     }
 }
@@ -114,8 +108,8 @@ void updateBiases(vector<double>& biases,vector<double>& delta,double learningRa
 
 int main(){
     
-    auto images =readImages("dataset/train-images.idx3-ubyte");
-    auto labels =readLabels("dataset/train-labels.idx1-ubyte");
+    auto images =readImages("../dataset/train-images.idx3-ubyte");
+    auto labels =readLabels("../dataset/train-labels.idx1-ubyte");
 
     auto hiddenLayerWeights1 =initLayer(16,images[0].size());
     auto hiddenLayerBiases1 =initLayer(1,16);
@@ -125,18 +119,23 @@ int main(){
     auto hiddenLayerBiases2 =initLayer(1,16);
     vector<vector<double>> hiddenLayer2( 1,vector<double>(16));
 
-    auto outputLayerWeights =initLayer(10,hiddenLayer2[0].size());
+    auto outputLayerWeights = initLayer(10,hiddenLayer2[0].size());
     auto outputLayerBiases = initLayer(1,10);
     vector<vector<double>> outputLayer( 1,  vector<double>(10));
 
-   
-    const double learningRate = 0.1;
+
+
+    double learningRate = 0.01;
+    
+    long double mediumLoss = 0, acertos = 0;
+
+    for(int epoch = 0; epoch < 10;epoch++){
 
     for(int imageAt = 0; imageAt < images.size();imageAt++){
 
-        auto image =images[imageAt];
+        auto image = images[imageAt];
 
-        int label =labels[imageAt];
+        int label = labels[imageAt];
 
         
         for(int i = 0; i < hiddenLayer1[0].size(); i++){
@@ -179,12 +178,60 @@ int main(){
 
        
 
-        if(imageAt % 1000 == 0){
 
-            cout<< fixed<< setprecision(6);
+        if(imageAt % 10000 == 0){
+
+            cout<< fixed<< setprecision(16);
+            cout<< "\n[Epoca "<<epoch<<"][Imagem "<< imageAt<< "] Loss: "<< loss<< " | Pred: "<< resposta<< " | Real: "<< label;
+        }
+    }
+    }
+
+    cout<<"\n____________________________________________________________________________________________________________________________________________"<<endl<<
+    "TREINAMENTO FINALIZADO"<<endl;
+
+    auto imagesTest = readImages("../dataset/t10k-images.idx3-ubyte");
+    auto labelsTest = readLabels("../dataset/t10k-labels.idx1-ubyte");
+
+    for(int imageAt = 0; imageAt < imagesTest.size();imageAt++){
+
+        auto image = imagesTest[imageAt];
+
+        int label = labelsTest[imageAt];
+
+        
+        for(int i = 0; i < hiddenLayer1[0].size(); i++){
+            hiddenLayer1[0][i] = activation( hiddenLayerWeights1[i], image, hiddenLayerBiases1[0][i]);
+        }
+
+        for(int i = 0;i < hiddenLayer2[0].size();i++){
+            hiddenLayer2[0][i] = activation(hiddenLayerWeights2[i], hiddenLayer1[0], hiddenLayerBiases2[0][i]);
+        }
+
+        for(int i = 0;i < outputLayer[0].size();i++){
+            outputLayer[0][i] = activation(outputLayerWeights[i], hiddenLayer2[0],outputLayerBiases[0][i]);
+        }
+
+       double loss = lossFunction(outputLayer[0],label);
+       int resposta = output(outputLayer[0]);
+
+        mediumLoss += loss;
+
+        acertos += (resposta == label) ? 1.0 : 0.0;
+
+       
+
+
+        if(imageAt % 10 == 0){
+
+            cout<< fixed<< setprecision(16);
             cout<< "\n[Imagem "<< imageAt<< "] Loss: "<< loss<< " | Pred: "<< resposta<< " | Real: "<< label;
         }
     }
+
+    
+
+    cout<< "\n[MediumLoss]: "<<mediumLoss/10000<<" | [MediumHits]: "<< acertos/10000;
 
     return 0;
 }
